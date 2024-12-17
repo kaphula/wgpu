@@ -50,14 +50,14 @@ impl MultiTargetRenderer {
         let ball_texture_data = &create_ball_texture_data(WIDTH, HEIGHT);
 
         queue.write_texture(
-            wgpu::ImageCopyTexture {
+            wgpu::TexelCopyTextureInfo {
                 aspect: wgpu::TextureAspect::All,
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
             ball_texture_data,
-            wgpu::ImageDataLayout {
+            wgpu::TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: Some(WIDTH as u32),
                 rows_per_image: Some(HEIGHT as u32),
@@ -150,13 +150,13 @@ impl MultiTargetRenderer {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
                 buffers: &[],
             },
             fragment: Some(wgpu::FragmentState {
                 module: shader,
-                entry_point: "fs_multi_main",
+                entry_point: Some("fs_multi_main"),
                 // IMPORTANT: specify the color states for the outputs:
                 compilation_options: Default::default(),
                 targets: ts.as_slice(),
@@ -252,13 +252,13 @@ impl TargetRenderer {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
                 buffers: &[],
             },
             fragment: Some(wgpu::FragmentState {
                 module: shader,
-                entry_point: "fs_display_main",
+                entry_point: Some("fs_display_main"),
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format,
