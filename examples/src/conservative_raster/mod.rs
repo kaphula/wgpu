@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 const RENDER_TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
 
 struct Example {
@@ -83,12 +81,8 @@ impl crate::framework::Example for Example {
                 push_constant_ranges: &[],
             });
 
-        let shader_triangle_and_lines = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
-                "triangle_and_lines.wgsl"
-            ))),
-        });
+        let shader_triangle_and_lines =
+            device.create_shader_module(wgpu::include_wgsl!("triangle_and_lines.wgsl"));
 
         let pipeline_triangle_conservative =
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -96,13 +90,13 @@ impl crate::framework::Example for Example {
                 layout: Some(&pipeline_layout_empty),
                 vertex: wgpu::VertexState {
                     module: &shader_triangle_and_lines,
-                    entry_point: "vs_main",
+                    entry_point: Some("vs_main"),
                     compilation_options: Default::default(),
                     buffers: &[],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader_triangle_and_lines,
-                    entry_point: "fs_main_red",
+                    entry_point: Some("fs_main_red"),
                     compilation_options: Default::default(),
                     targets: &[Some(RENDER_TARGET_FORMAT.into())],
                 }),
@@ -122,13 +116,13 @@ impl crate::framework::Example for Example {
                 layout: Some(&pipeline_layout_empty),
                 vertex: wgpu::VertexState {
                     module: &shader_triangle_and_lines,
-                    entry_point: "vs_main",
+                    entry_point: Some("vs_main"),
                     compilation_options: Default::default(),
                     buffers: &[],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader_triangle_and_lines,
-                    entry_point: "fs_main_blue",
+                    entry_point: Some("fs_main_blue"),
                     compilation_options: Default::default(),
                     targets: &[Some(RENDER_TARGET_FORMAT.into())],
                 }),
@@ -149,13 +143,13 @@ impl crate::framework::Example for Example {
                     layout: Some(&pipeline_layout_empty),
                     vertex: wgpu::VertexState {
                         module: &shader_triangle_and_lines,
-                        entry_point: "vs_main",
+                        entry_point: Some("vs_main"),
                         compilation_options: Default::default(),
                         buffers: &[],
                     },
                     fragment: Some(wgpu::FragmentState {
                         module: &shader_triangle_and_lines,
-                        entry_point: "fs_main_white",
+                        entry_point: Some("fs_main_white"),
                         compilation_options: Default::default(),
                         targets: &[Some(config.view_formats[0].into())],
                     }),
@@ -203,23 +197,20 @@ impl crate::framework::Example for Example {
                 bind_group_layouts: &[&bind_group_layout],
                 push_constant_ranges: &[],
             });
-            let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: None,
-                source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("upscale.wgsl"))),
-            });
+            let shader = device.create_shader_module(wgpu::include_wgsl!("upscale.wgsl"));
             (
                 device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                     label: Some("Upscale"),
                     layout: Some(&pipeline_layout),
                     vertex: wgpu::VertexState {
                         module: &shader,
-                        entry_point: "vs_main",
+                        entry_point: Some("vs_main"),
                         compilation_options: Default::default(),
                         buffers: &[],
                     },
                     fragment: Some(wgpu::FragmentState {
                         module: &shader,
-                        entry_point: "fs_main",
+                        entry_point: Some("fs_main"),
                         compilation_options: Default::default(),
                         targets: &[Some(config.view_formats[0].into())],
                     }),

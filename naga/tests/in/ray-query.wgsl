@@ -1,10 +1,7 @@
-@group(0) @binding(0)
-var acc_struct: acceleration_structure;
-
 /*
 let RAY_FLAG_NONE = 0x00u;
-let RAY_FLAG_OPAQUE = 0x01u;
-let RAY_FLAG_NO_OPAQUE = 0x02u;
+let RAY_FLAG_FORCE_OPAQUE = 0x01u;
+let RAY_FLAG_FORCE_NO_OPAQUE = 0x02u;
 let RAY_FLAG_TERMINATE_ON_FIRST_HIT = 0x04u;
 let RAY_FLAG_SKIP_CLOSEST_HIT_SHADER = 0x08u;
 let RAY_FLAG_CULL_BACK_FACING = 0x10u;
@@ -17,7 +14,7 @@ let RAY_FLAG_SKIP_AABBS = 0x200u;
 let RAY_QUERY_INTERSECTION_NONE = 0u;
 let RAY_QUERY_INTERSECTION_TRIANGLE = 1u;
 let RAY_QUERY_INTERSECTION_GENERATED = 2u;
-let RAY_QUERY_INTERSECTION_AABB = 4u;
+let RAY_QUERY_INTERSECTION_AABB = 3u;
 
 struct RayDesc {
     flags: u32,
@@ -43,6 +40,18 @@ struct RayIntersection {
 }
 */
 
+fn query_loop(pos: vec3<f32>, dir: vec3<f32>, acs: acceleration_structure) -> RayIntersection {
+    var rq: ray_query;
+    rayQueryInitialize(&rq, acs, RayDesc(RAY_FLAG_TERMINATE_ON_FIRST_HIT, 0xFFu, 0.1, 100.0, pos, dir));
+
+    while (rayQueryProceed(&rq)) {}
+
+    return rayQueryGetCommittedIntersection(&rq);
+}
+
+@group(0) @binding(0)
+var acc_struct: acceleration_structure;
+
 struct Output {
     visible: u32,
     normal: vec3<f32>,
@@ -58,16 +67,25 @@ fn get_torus_normal(world_point: vec3<f32>, intersection: RayIntersection) -> ve
     return normalize(world_point - world_point_on_guiding_line);
 }
 
+
+
 @compute @workgroup_size(1)
 fn main() {
-    var rq: ray_query;
-
+    let pos = vec3<f32>(0.0);
     let dir = vec3<f32>(0.0, 1.0, 0.0);
-    rayQueryInitialize(&rq, acc_struct, RayDesc(RAY_FLAG_TERMINATE_ON_FIRST_HIT, 0xFFu, 0.1, 100.0, vec3<f32>(0.0), dir));
+    let intersection = query_loop(pos, dir, acc_struct);
 
-    while (rayQueryProceed(&rq)) {}
-
-    let intersection = rayQueryGetCommittedIntersection(&rq);
     output.visible = u32(intersection.kind == RAY_QUERY_INTERSECTION_NONE);
     output.normal = get_torus_normal(dir * intersection.t, intersection);
+}
+
+@compute @workgroup_size(1)
+fn main_candidate() {
+    let pos = vec3<f32>(0.0);
+    let dir = vec3<f32>(0.0, 1.0, 0.0);
+
+    var rq: ray_query;
+    rayQueryInitialize(&rq, acc_struct, RayDesc(RAY_FLAG_TERMINATE_ON_FIRST_HIT, 0xFFu, 0.1, 100.0, pos, dir));
+    let intersection = rayQueryGetCandidateIntersection(&rq);
+    output.visible = u32(intersection.kind == RAY_QUERY_INTERSECTION_AABB);
 }

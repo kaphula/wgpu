@@ -3,7 +3,7 @@ name = "wgpu"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "Rusty WebGPU API wrapper"
+description = "Cross-platform, safe, pure-rust graphics API"
 homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
@@ -87,8 +87,9 @@ strict_asserts = ["wgc?/strict_asserts", "wgt/strict_asserts"]
 ## Enables serialization via `serde` on common wgpu types.
 serde = ["dep:serde", "wgc/serde"]
 
-## Allow writing of trace capture files. See [`Adapter::request_device`].
-trace = ["serde", "wgc/trace"]
+# Uncomment once we get to https://github.com/gfx-rs/wgpu/issues/5974
+# ## Allow writing of trace capture files. See [`Adapter::request_device`].
+# trace = ["serde", "wgc/trace"]
 
 ## Allow deserializing of trace capture files that were written with the `trace` feature.
 ## To replay a trace file use the [wgpu player](https://github.com/gfx-rs/wgpu/tree/trunk/player).
@@ -96,6 +97,11 @@ replay = ["serde", "wgc/replay"]
 
 #! ### Other
 # --------------------------------------------------------------------
+
+## Internally count resources and events for debugging purposes. If the counters
+## feature is disabled, the counting infrastructure is removed from the build and
+## the exposed counters always return 0.
+counters = ["wgc/counters"]
 
 ## Implement `Send` and `Sync` on Wasm, but only if atomics are not enabled.
 ##
@@ -111,6 +117,18 @@ fragile-send-sync-non-atomic-wasm = [
     "wgt/fragile-send-sync-non-atomic-wasm",
 ]
 
+
+#! ### External libraries
+# --------------------------------------------------------------------
+#! The following features facilitate integration with third-party supporting libraries.
+
+## Enables statically linking DXC.
+## Normally, to use the modern DXC shader compiler with WGPU, the final application
+## must be shipped alongside `dxcompiler.dll` and `dxil.dll` (which can be downloaded from Microsoft's GitHub).
+## This feature statically links a version of DXC so that no external binaries are required
+## to compile DX12 shaders.
+static-dxc = ["hal/static-dxc"]
+
 # wgpu-core is always available as an optional dependency, "wgc".
 # Whenever wgpu-core is selected, we want raw window handle support.
 [dependencies.wgc]
@@ -123,6 +141,12 @@ features = ["raw-window-handle"]
 [target.'cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))'.dependencies.wgc]
 workspace = true
 features = ["raw-window-handle"]
+
+# If we are not targeting WebGL, enable indirect-validation.
+# WebGL doesn't support indirect execution so this is not needed.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.wgc]
+workspace = true
+features = ["indirect-validation"]
 
 # Enable `wgc` by default on macOS and iOS to allow the `metal` crate feature to
 # enable the Metal backend while being no-op on other targets.
@@ -155,11 +179,7 @@ hal = { workspace = true }
 hal = { workspace = true, features = ["renderdoc"] }
 
 [target.'cfg(windows)'.dependencies]
-hal = { workspace = true, features = [
-    "dxc_shader_compiler",
-    "renderdoc",
-    "windows_rs",
-] }
+hal = { workspace = true, features = ["renderdoc"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.hal]
 workspace = true

@@ -25,6 +25,7 @@ impl crate::Adapter for super::Adapter {
         &self,
         features: wgt::Features,
         _limits: &wgt::Limits,
+        _memory_hints: &wgt::MemoryHints,
     ) -> Result<crate::OpenDevice<super::Api>, crate::DeviceError> {
         let queue = self
             .shared
@@ -62,6 +63,7 @@ impl crate::Adapter for super::Adapter {
             device: super::Device {
                 shared: Arc::clone(&self.shared),
                 features,
+                counters: Default::default(),
             },
             queue: super::Queue {
                 raw: Arc::new(Mutex::new(queue)),
@@ -109,7 +111,7 @@ impl crate::Adapter for super::Adapter {
 
         // Metal defined pixel format capabilities
         let all_caps = Tfc::SAMPLED_LINEAR
-            | Tfc::STORAGE
+            | Tfc::STORAGE_WRITE_ONLY
             | Tfc::COLOR_ATTACHMENT
             | Tfc::COLOR_ATTACHMENT_BLEND
             | msaa_count
@@ -132,7 +134,7 @@ impl crate::Adapter for super::Adapter {
             | Tf::Rgba8Sint
             | Tf::Rgba16Uint
             | Tf::Rgba16Sint => {
-                read_write_tier2_if | Tfc::STORAGE | Tfc::COLOR_ATTACHMENT | msaa_count
+                read_write_tier2_if | Tfc::STORAGE_WRITE_ONLY | Tfc::COLOR_ATTACHMENT | msaa_count
             }
             Tf::R16Unorm
             | Tf::R16Snorm
@@ -141,59 +143,72 @@ impl crate::Adapter for super::Adapter {
             | Tf::Rgba16Unorm
             | Tf::Rgba16Snorm => {
                 Tfc::SAMPLED_LINEAR
-                    | Tfc::STORAGE
+                    | Tfc::STORAGE_WRITE_ONLY
                     | Tfc::COLOR_ATTACHMENT
                     | Tfc::COLOR_ATTACHMENT_BLEND
                     | msaa_count
                     | msaa_resolve_desktop_if
             }
             Tf::Rg8Unorm | Tf::Rg16Float | Tf::Bgra8Unorm => all_caps,
-            Tf::Rg8Uint | Tf::Rg8Sint => Tfc::STORAGE | Tfc::COLOR_ATTACHMENT | msaa_count,
+            Tf::Rg8Uint | Tf::Rg8Sint => {
+                Tfc::STORAGE_WRITE_ONLY | Tfc::COLOR_ATTACHMENT | msaa_count
+            }
             Tf::R32Uint | Tf::R32Sint => {
-                read_write_tier1_if | Tfc::STORAGE | Tfc::COLOR_ATTACHMENT | msaa_count
+                read_write_tier1_if | Tfc::STORAGE_WRITE_ONLY | Tfc::COLOR_ATTACHMENT | msaa_count
             }
             Tf::R32Float => {
                 let flags = if pc.format_r32float_all {
                     all_caps
                 } else {
-                    Tfc::STORAGE | Tfc::COLOR_ATTACHMENT | Tfc::COLOR_ATTACHMENT_BLEND | msaa_count
+                    Tfc::STORAGE_WRITE_ONLY
+                        | Tfc::COLOR_ATTACHMENT
+                        | Tfc::COLOR_ATTACHMENT_BLEND
+                        | msaa_count
                 };
                 read_write_tier1_if | flags
             }
-            Tf::Rg16Uint | Tf::Rg16Sint => Tfc::STORAGE | Tfc::COLOR_ATTACHMENT | msaa_count,
+            Tf::Rg16Uint | Tf::Rg16Sint => {
+                Tfc::STORAGE_WRITE_ONLY | Tfc::COLOR_ATTACHMENT | msaa_count
+            }
             Tf::Rgba8UnormSrgb | Tf::Bgra8UnormSrgb => {
                 let mut flags = all_caps;
-                flags.set(Tfc::STORAGE, pc.format_rgba8_srgb_all);
+                flags.set(Tfc::STORAGE_WRITE_ONLY, pc.format_rgba8_srgb_all);
                 flags
             }
             Tf::Rgb10a2Uint => {
                 let mut flags = Tfc::COLOR_ATTACHMENT | msaa_count;
-                flags.set(Tfc::STORAGE, pc.format_rgb10a2_uint_write);
+                flags.set(Tfc::STORAGE_WRITE_ONLY, pc.format_rgb10a2_uint_write);
                 flags
             }
             Tf::Rgb10a2Unorm => {
                 let mut flags = all_caps;
-                flags.set(Tfc::STORAGE, pc.format_rgb10a2_unorm_all);
+                flags.set(Tfc::STORAGE_WRITE_ONLY, pc.format_rgb10a2_unorm_all);
                 flags
             }
-            Tf::Rg11b10Float => {
+            Tf::Rg11b10Ufloat => {
                 let mut flags = all_caps;
-                flags.set(Tfc::STORAGE, pc.format_rg11b10_all);
+                flags.set(Tfc::STORAGE_WRITE_ONLY, pc.format_rg11b10_all);
                 flags
             }
-            Tf::Rg32Uint | Tf::Rg32Sint => Tfc::COLOR_ATTACHMENT | Tfc::STORAGE | msaa_count,
+            Tf::Rg32Uint | Tf::Rg32Sint => {
+                Tfc::COLOR_ATTACHMENT | Tfc::STORAGE_WRITE_ONLY | msaa_count
+            }
             Tf::Rg32Float => {
                 if pc.format_rg32float_all {
                     all_caps
                 } else {
-                    Tfc::STORAGE | Tfc::COLOR_ATTACHMENT | Tfc::COLOR_ATTACHMENT_BLEND | msaa_count
+                    Tfc::STORAGE_WRITE_ONLY
+                        | Tfc::COLOR_ATTACHMENT
+                        | Tfc::COLOR_ATTACHMENT_BLEND
+                        | msaa_count
                 }
             }
             Tf::Rgba32Uint | Tf::Rgba32Sint => {
-                read_write_tier2_if | Tfc::STORAGE | Tfc::COLOR_ATTACHMENT | msaa_count
+                read_write_tier2_if | Tfc::STORAGE_WRITE_ONLY | Tfc::COLOR_ATTACHMENT | msaa_count
             }
             Tf::Rgba32Float => {
-                let mut flags = read_write_tier2_if | Tfc::STORAGE | Tfc::COLOR_ATTACHMENT;
+                let mut flags =
+                    read_write_tier2_if | Tfc::STORAGE_WRITE_ONLY | Tfc::COLOR_ATTACHMENT;
                 if pc.format_rgba32float_all {
                     flags |= all_caps
                 } else if pc.msaa_apple7 {
@@ -294,7 +309,7 @@ impl crate::Adapter for super::Adapter {
             }
         };
 
-        Tfc::COPY_SRC | Tfc::COPY_DST | Tfc::SAMPLED | extra
+        Tfc::COPY_SRC | Tfc::COPY_DST | Tfc::SAMPLED | Tfc::STORAGE_READ_ONLY | extra
     }
 
     unsafe fn surface_capabilities(
@@ -342,7 +357,10 @@ impl crate::Adapter for super::Adapter {
             current_extent,
             usage: crate::TextureUses::COLOR_TARGET
                 | crate::TextureUses::COPY_SRC
-                | crate::TextureUses::COPY_DST,
+                | crate::TextureUses::COPY_DST
+                | crate::TextureUses::STORAGE_READ_ONLY
+                | crate::TextureUses::STORAGE_WRITE_ONLY
+                | crate::TextureUses::STORAGE_READ_WRITE,
         })
     }
 
@@ -736,7 +754,9 @@ impl super::PrivateCapabilities {
                 4
             },
             // Per https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf
-            max_color_attachment_bytes_per_sample: if device.supports_family(MTLGPUFamily::Apple4) {
+            max_color_attachment_bytes_per_sample: if family_check
+                && device.supports_family(MTLGPUFamily::Apple4)
+            {
                 64
             } else {
                 32
@@ -819,6 +839,12 @@ impl super::PrivateCapabilities {
             int64: family_check
                 && (device.supports_family(MTLGPUFamily::Apple3)
                     || device.supports_family(MTLGPUFamily::Metal3)),
+            // https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf#page=6
+            int64_atomics: family_check
+                && ((device.supports_family(MTLGPUFamily::Apple8)
+                    && device.supports_family(MTLGPUFamily::Mac2))
+                    || device.supports_family(MTLGPUFamily::Apple9)),
+            supports_shared_event: version.at_least((10, 14), (12, 0), os_is_mac),
         }
     }
 
@@ -867,6 +893,7 @@ impl super::PrivateCapabilities {
         features.set(F::TEXTURE_COMPRESSION_ASTC, self.format_astc);
         features.set(F::TEXTURE_COMPRESSION_ASTC_HDR, self.format_astc_hdr);
         features.set(F::TEXTURE_COMPRESSION_BC, self.format_bc);
+        features.set(F::TEXTURE_COMPRESSION_BC_SLICED_3D, self.format_bc); // BC guarantees Sliced 3D
         features.set(F::TEXTURE_COMPRESSION_ETC2, self.format_eac_etc);
 
         features.set(F::DEPTH_CLIP_CONTROL, self.supports_depth_clip_control);
@@ -894,6 +921,10 @@ impl super::PrivateCapabilities {
             F::SHADER_INT64,
             self.int64 && self.msl_version >= MTLLanguageVersion::V2_3,
         );
+        features.set(
+            F::SHADER_INT64_ATOMIC_MIN_MAX,
+            self.int64_atomics && self.msl_version >= MTLLanguageVersion::V2_4,
+        );
 
         features.set(
             F::ADDRESS_MODE_CLAMP_TO_BORDER,
@@ -902,7 +933,6 @@ impl super::PrivateCapabilities {
         features.set(F::ADDRESS_MODE_CLAMP_TO_ZERO, true);
 
         features.set(F::RG11B10UFLOAT_RENDERABLE, self.format_rg11b10_all);
-        features.set(F::SHADER_UNUSED_VERTEX_OUTPUT, true);
 
         if self.supports_simd_scoped_operations {
             features.insert(F::SUBGROUP | F::SUBGROUP_BARRIER);
@@ -984,6 +1014,12 @@ impl super::PrivateCapabilities {
             alignments: crate::Alignments {
                 buffer_copy_offset: wgt::BufferSize::new(self.buffer_alignment).unwrap(),
                 buffer_copy_pitch: wgt::BufferSize::new(4).unwrap(),
+                // This backend has Naga incorporate bounds checks into the
+                // Metal Shading Language it generates, so from `wgpu_hal`'s
+                // users' point of view, references are tightly checked.
+                uniform_bounds_check_alignment: wgt::BufferSize::new(1).unwrap(),
+                raw_tlas_instance_size: 0,
+                ray_tracing_scratch_buffer_alignment: 0,
             },
             downlevel,
         }
@@ -1023,7 +1059,7 @@ impl super::PrivateCapabilities {
             Tf::Rgba8Sint => RGBA8Sint,
             Tf::Rgb10a2Uint => RGB10A2Uint,
             Tf::Rgb10a2Unorm => RGB10A2Unorm,
-            Tf::Rg11b10Float => RG11B10Float,
+            Tf::Rg11b10Ufloat => RG11B10Float,
             Tf::Rg32Uint => RG32Uint,
             Tf::Rg32Sint => RG32Sint,
             Tf::Rg32Float => RG32Float,

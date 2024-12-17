@@ -179,33 +179,13 @@ impl super::Adapter {
             0
         };
 
-        let driver;
-        let driver_info;
-        if version.starts_with("WebGL ") || version.starts_with("OpenGL ") {
-            let es_sig = " ES";
-            match version.find(es_sig) {
-                Some(pos) => {
-                    driver = version[..pos + es_sig.len()].to_owned();
-                    driver_info = version[pos + es_sig.len() + 1..].to_owned();
-                }
-                None => {
-                    let pos = version.find(' ').unwrap();
-                    driver = version[..pos].to_owned();
-                    driver_info = version[pos + 1..].to_owned();
-                }
-            }
-        } else {
-            driver = "OpenGL".to_owned();
-            driver_info = version;
-        }
-
         wgt::AdapterInfo {
             name: renderer_orig,
             vendor: vendor_id,
             device: 0,
             device_type: inferred_device_type,
-            driver,
-            driver_info,
+            driver: "".to_owned(),
+            driver_info: version,
             backend: wgt::Backend::Gl,
         }
     }
@@ -491,7 +471,6 @@ impl super::Adapter {
             wgt::Features::SHADER_EARLY_DEPTH_TEST,
             supported((3, 1), (4, 2)) || extensions.contains("GL_ARB_shader_image_load_store"),
         );
-        features.set(wgt::Features::SHADER_UNUSED_VERTEX_OUTPUT, true);
         if extensions.contains("GL_ARB_timer_query") {
             features.set(wgt::Features::TIMESTAMP_QUERY, true);
             features.set(wgt::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS, true);
@@ -523,6 +502,10 @@ impl super::Adapter {
         features.set(
             wgt::Features::TEXTURE_COMPRESSION_BC,
             bcn_exts.iter().all(|&ext| extensions.contains(ext)),
+        );
+        features.set(
+            wgt::Features::TEXTURE_COMPRESSION_BC_SLICED_3D,
+            bcn_exts.iter().all(|&ext| extensions.contains(ext)), // BC guaranteed Sliced 3D
         );
         let has_etc = if cfg!(any(webgl, Emscripten)) {
             extensions.contains("WEBGL_compressed_texture_etc")
@@ -858,6 +841,18 @@ impl super::Adapter {
                 alignments: crate::Alignments {
                     buffer_copy_offset: wgt::BufferSize::new(4).unwrap(),
                     buffer_copy_pitch: wgt::BufferSize::new(4).unwrap(),
+                    // #6151: `wgpu_hal::gles` doesn't ask Naga to inject bounds
+                    // checks in GLSL, and it doesn't request extensions like
+                    // `KHR_robust_buffer_access_behavior` that would provide
+                    // them, so we can't really implement the checks promised by
+                    // [`crate::BufferBinding`].
+                    //
+                    // Since this is a pre-existing condition, for the time
+                    // being, provide 1 as the value here, to cause as little
+                    // trouble as possible.
+                    uniform_bounds_check_alignment: wgt::BufferSize::new(1).unwrap(),
+                    raw_tlas_instance_size: 0,
+                    ray_tracing_scratch_buffer_alignment: 0,
                 },
             },
         })
@@ -950,6 +945,7 @@ impl crate::Adapter for super::Adapter {
         &self,
         features: wgt::Features,
         _limits: &wgt::Limits,
+        _memory_hints: &wgt::MemoryHints,
     ) -> Result<crate::OpenDevice<super::Api>, crate::DeviceError> {
         let gl = &self.shared.context.lock();
         unsafe { gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1) };
@@ -987,6 +983,7 @@ impl crate::Adapter for super::Adapter {
                 main_vao,
                 #[cfg(all(native, feature = "renderdoc"))]
                 render_doc: Default::default(),
+                counters: Default::default(),
             },
             queue: super::Queue {
                 shared: Arc::clone(&self.shared),
@@ -1041,7 +1038,8 @@ impl crate::Adapter for super::Adapter {
         let renderable =
             unfilterable | Tfc::COLOR_ATTACHMENT | sample_count | Tfc::MULTISAMPLE_RESOLVE;
         let filterable_renderable = filterable | renderable | Tfc::COLOR_ATTACHMENT_BLEND;
-        let storage = base | Tfc::STORAGE | Tfc::STORAGE_READ_WRITE;
+        let storage =
+            base | Tfc::STORAGE_READ_WRITE | Tfc::STORAGE_READ_ONLY | Tfc::STORAGE_WRITE_ONLY;
 
         let feature_fn = |f, caps| {
             if self.shared.features.contains(f) {
@@ -1112,7 +1110,7 @@ impl crate::Adapter for super::Adapter {
             Tf::Rgba8Sint => renderable | storage,
             Tf::Rgb10a2Uint => renderable,
             Tf::Rgb10a2Unorm => filterable_renderable,
-            Tf::Rg11b10Float => filterable | float_renderable,
+            Tf::Rg11b10Ufloat => filterable | float_renderable,
             Tf::Rg32Uint => renderable,
             Tf::Rg32Sint => renderable,
             Tf::Rg32Float => unfilterable | float_renderable | texture_float_linear,
@@ -1171,6 +1169,11 @@ impl crate::Adapter for super::Adapter {
         &self,
         surface: &super::Surface,
     ) -> Option<crate::SurfaceCapabilities> {
+        #[cfg(webgl)]
+        if self.shared.context.webgl2_context != surface.webgl2_context {
+            return None;
+        }
+
         if surface.presentable {
             let mut formats = vec![
                 wgt::TextureFormat::Rgba8Unorm,

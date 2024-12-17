@@ -7,6 +7,8 @@
 //!
 //! Only parts specific to this example will be commented.
 
+use std::mem::size_of_val;
+
 use wgpu::util::DeviceExt;
 
 async fn run() {
@@ -32,16 +34,14 @@ async fn run() {
                 label: None,
                 required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::downlevel_defaults(),
+                memory_hints: wgpu::MemoryHints::MemoryUsage,
             },
             None,
         )
         .await
         .unwrap();
 
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: None,
-        source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!("shader.wgsl"))),
-    });
+    let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
 
     let storage_buffer_a = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
@@ -55,7 +55,7 @@ async fn run() {
     });
     let output_staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
-        size: std::mem::size_of_val(&local_a) as u64,
+        size: size_of_val(&local_a) as u64,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
         mapped_at_creation: false,
     });
@@ -109,7 +109,7 @@ async fn run() {
         label: None,
         layout: Some(&pipeline_layout),
         module: &shader,
-        entry_point: "main",
+        entry_point: Some("main"),
         compilation_options: Default::default(),
         cache: None,
     });
@@ -168,7 +168,7 @@ async fn get_data<T: bytemuck::Pod>(
         0,
         staging_buffer,
         0,
-        std::mem::size_of_val(output) as u64,
+        size_of_val(output) as u64,
     );
     queue.submit(Some(command_encoder.finish()));
     let buffer_slice = staging_buffer.slice(..);

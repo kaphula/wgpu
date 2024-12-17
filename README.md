@@ -21,7 +21,6 @@ The repository hosts the following libraries:
 - [![Crates.io](https://img.shields.io/crates/v/wgpu-hal.svg?label=wgpu-hal)](https://crates.io/crates/wgpu-hal) [![docs.rs](https://docs.rs/wgpu-hal/badge.svg)](https://docs.rs/wgpu-hal/) - Internal unsafe GPU API abstraction layer.
 - [![Crates.io](https://img.shields.io/crates/v/wgpu-types.svg?label=wgpu-types)](https://crates.io/crates/wgpu-types) [![docs.rs](https://docs.rs/wgpu-types/badge.svg)](https://docs.rs/wgpu-types/) - Rust types shared between all crates.
 - [![Crates.io](https://img.shields.io/crates/v/naga.svg?label=naga)](https://crates.io/crates/naga) [![docs.rs](https://docs.rs/naga/badge.svg)](https://docs.rs/naga/) - Stand-alone shader translation library.
-- [![Crates.io](https://img.shields.io/crates/v/d3d12.svg?label=d3d12)](https://crates.io/crates/d3d12) [![docs.rs](https://docs.rs/d3d12/badge.svg)](https://docs.rs/d3d12/) - Collection of thin abstractions over d3d12.
 - [![Crates.io](https://img.shields.io/crates/v/deno_webgpu.svg?label=deno_webgpu)](https://crates.io/crates/deno_webgpu) - WebGPU implementation for the Deno JavaScript/TypeScript runtime
 
 The following binaries:
@@ -35,13 +34,17 @@ For an overview of all the components in the gfx-rs ecosystem, see [the big pict
 
 ## Getting Started
 
+### Play with our Examples
+
+Go to [https://wgpu.rs/examples/] to play with our examples in your browser. Requires a browser supporting WebGPU for the WebGPU examples.
+
 ### Rust
 
 Rust examples can be found at [wgpu/examples](examples). You can run the examples on native with `cargo run --bin wgpu-examples <example>`. See the [list of examples](examples).
 
-To run the examples on WebGPU on wasm, run `cargo xtask run-wasm --bin wgpu-examples`. Then connect to `http://localhost:8000` in your WebGPU-enabled browser, and you can choose an example to run.
-
-To run the examples on WebGL on wasm, run `cargo xtask run-wasm --bin wgpu-examples --features webgl`. Then connect to `http://localhost:8000` in your WebGL-enabled browser, and you can choose an example to run.
+To run the examples in a browser, run `cargo xtask run-wasm`.
+Then open `http://localhost:8000` in your browser, and you can choose an example to run.
+Naturally, in order to display any of the WebGPU based examples, you need to make sure your browser supports it.
 
 If you are looking for a wgpu tutorial, look at the following:
 
@@ -72,21 +75,30 @@ We have the Matrix space [![Matrix Space](https://img.shields.io/static/v1?label
 
 We have a [wiki](https://github.com/gfx-rs/wgpu/wiki) that serves as a knowledge base.
 
+## Extension Specifications
+
+While the core of wgpu is based on the WebGPU standard, we also support extensions that allow for features that the standard does not have yet.
+For high-level documentation on how to use these extensions, see the individual specifications:
+
+🧪EXPERIMENTAL🧪 APIs are subject to change and may allow undefined behavior if used incorrectly.
+
+- 🧪EXPERIMENTAL🧪 [Ray Tracing](./etc/specs/ray_tracing.md).
+
 ## Supported Platforms
 
 | API    | Windows            | Linux/Android      | macOS/iOS          | Web (wasm)         |
 | ------ | ------------------ | ------------------ | ------------------ | ------------------ |
-| Vulkan | :white_check_mark: | :white_check_mark: | :volcano:          |                    |
-| Metal  |                    |                    | :white_check_mark: |                    |
-| DX12   | :white_check_mark: |                    |                    |                    |
-| OpenGL | :ok: (GL 3.3+)     | :ok: (GL ES 3.0+)  | :triangular_ruler: | :ok: (WebGL2)      |
-| WebGPU |                    |                    |                    | :white_check_mark: |
+| Vulkan |         ✅         |         ✅         |         🌋         |                    |
+| Metal  |                    |                    |         ✅         |                    |
+| DX12   |         ✅         |                    |                    |                    |
+| OpenGL |    🆗 (GL 3.3+)    |  🆗 (GL ES 3.0+)   |         📐         |    🆗 (WebGL2)     |
+| WebGPU |                    |                    |                    |         ✅         |
 
-:white_check_mark: = First Class Support  
-:ok: = Downlevel/Best Effort Support  
-:triangular_ruler: = Requires the [ANGLE](#angle) translation layer (GL ES 3.0 only)  
-:volcano: = Requires the [MoltenVK](https://vulkan.lunarg.com/sdk/home#mac) translation layer  
-:hammer_and_wrench: = Unsupported, though open to contributions
+✅ = First Class Support  
+🆗 = Downlevel/Best Effort Support  
+📐 = Requires the [ANGLE](#angle) translation layer (GL ES 3.0 only)  
+🌋 = Requires the [MoltenVK](https://vulkan.lunarg.com/sdk/home#mac) translation layer  
+🛠️ = Unsupported, though open to contributions
 
 ### Shader Support
 
@@ -120,8 +132,8 @@ On Linux, you can point to them using `LD_LIBRARY_PATH` environment.
 
 Due to complex dependants, we have two MSRV policies:
 
-- `d3d12`, `naga`, `wgpu-core`, `wgpu-hal`, and `wgpu-types`'s MSRV is **1.74**.
-- The rest of the workspace has an MSRV of **1.76**.
+- `naga`, `wgpu-core`, `wgpu-hal`, and `wgpu-types`'s MSRV is **1.76**, but may be lower than the rest of the workspace in the future.
+- The rest of the workspace has an MSRV of **1.83** as well right now, but may be higher than above listed crates.
 
 It is enforced on CI (in "/.github/workflows/ci.yml") with the `CORE_MSRV` and `REPO_MSRV` variables.
 This version can only be upgraded in breaking releases, though we release a breaking version every three months.
@@ -140,7 +152,7 @@ All testing and example infrastructure share the same set of environment variabl
 - `WGPU_ADAPTER_NAME` with a substring of the name of the adapter you want to use (ex. `1080` will match `NVIDIA GeForce 1080ti`).
 - `WGPU_BACKEND` with a comma-separated list of the backends you want to use (`vulkan`, `metal`, `dx12`, or `gl`).
 - `WGPU_POWER_PREF` with the power preference to choose when a specific adapter name isn't specified (`high`, `low` or `none`)
-- `WGPU_DX12_COMPILER` with the DX12 shader compiler you wish to use (`dxc` or `fxc`, note that `dxc` requires `dxil.dll` and `dxcompiler.dll` to be in the working directory otherwise it will fall back to `fxc`)
+- `WGPU_DX12_COMPILER` with the DX12 shader compiler you wish to use (`dxc`, `static-dxc`, or `fxc`). Note that `dxc` requires `dxil.dll` and `dxcompiler.dll` to be in the working directory, and `static-dxc` requires the `static-dxc` crate feature to be enabled. Otherwise, it will fall back to `fxc`.
 - `WGPU_GLES_MINOR_VERSION` with the minor OpenGL ES 3 version number to request (`0`, `1`, `2` or `automatic`).
 - `WGPU_ALLOW_UNDERLYING_NONCOMPLIANT_ADAPTER` with a boolean whether non-compliant drivers are enumerated (`0` for false, `1` for true).
 

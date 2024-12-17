@@ -1,6 +1,8 @@
 use criterion::criterion_main;
 use pollster::block_on;
 
+mod bind_groups;
+mod computepass;
 mod renderpass;
 mod resource_creation;
 mod shader;
@@ -38,13 +40,14 @@ impl DeviceState {
 
         let adapter_info = adapter.get_info();
 
-        eprintln!("{:?}", adapter_info);
+        eprintln!("{adapter_info:?}");
 
         let (device, queue) = block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 required_features: adapter.features(),
                 required_limits: adapter.limits(),
-                label: Some("RenderPass Device"),
+                memory_hints: wgpu::MemoryHints::Performance,
+                label: Some("Compute/RenderPass Device"),
             },
             None,
         ))
@@ -59,7 +62,9 @@ impl DeviceState {
 }
 
 criterion_main!(
+    bind_groups::bind_groups,
     renderpass::renderpass,
+    computepass::computepass,
     resource_creation::resource_creation,
     shader::shader
 );

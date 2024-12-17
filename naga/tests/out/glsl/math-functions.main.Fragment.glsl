@@ -65,14 +65,10 @@ void main() {
     ivec4 sign_b = ivec4(-1, -1, -1, -1);
     vec4 sign_d = vec4(-1.0, -1.0, -1.0, -1.0);
     int const_dot = ( + ivec2(0).x * ivec2(0).x + ivec2(0).y * ivec2(0).y);
-    uint first_leading_bit_abs = uint(findMSB(0u));
-    int flb_a = findMSB(-1);
-    ivec2 flb_b = findMSB(ivec2(-1));
-    uvec2 flb_c = uvec2(findMSB(uvec2(1u)));
-    int ftb_a = findLSB(-1);
-    uint ftb_b = uint(findLSB(1u));
-    ivec2 ftb_c = findLSB(ivec2(-1));
-    uvec2 ftb_d = uvec2(findLSB(uvec2(1u)));
+    ivec2 flb_b = ivec2(-1, -1);
+    uvec2 flb_c = uvec2(0u, 0u);
+    ivec2 ftb_c = ivec2(0, 0);
+    uvec2 ftb_d = uvec2(0u, 0u);
     uvec2 ctz_e = uvec2(32u, 32u);
     ivec2 ctz_f = ivec2(32, 32);
     uvec2 ctz_g = uvec2(0u, 0u);
@@ -91,5 +87,12 @@ void main() {
     float frexp_b = naga_frexp(1.5).fract_;
     int frexp_c = naga_frexp(1.5).exp_;
     int frexp_d = naga_frexp(vec4(1.5, 1.5, 1.5, 1.5)).exp_.x;
+    float quantizeToF16_a = unpackHalf2x16(packHalf2x16(vec2(1.0))).x;
+    vec2 _e120 = vec2(1.0, 1.0);
+    vec2 quantizeToF16_b = unpackHalf2x16(packHalf2x16(_e120));
+    vec3 _e125 = vec3(1.0, 1.0, 1.0);
+    vec3 quantizeToF16_c = vec3(unpackHalf2x16(packHalf2x16(_e125.xy)), unpackHalf2x16(packHalf2x16(_e125.zz)).x);
+    vec4 _e131 = vec4(1.0, 1.0, 1.0, 1.0);
+    vec4 quantizeToF16_d = vec4(unpackHalf2x16(packHalf2x16(_e131.xy)), unpackHalf2x16(packHalf2x16(_e131.zw)));
 }
 

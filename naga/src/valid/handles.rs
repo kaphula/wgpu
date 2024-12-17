@@ -2,23 +2,25 @@
 
 use crate::{
     arena::{BadHandle, BadRangeError},
+    diagnostic_filter::DiagnosticFilterNode,
     Handle,
 };
 
+use crate::non_max_u32::NonMaxU32;
 use crate::{Arena, UniqueArena};
 
 use super::ValidationError;
 
-use std::{convert::TryInto, hash::Hash, num::NonZeroU32};
+use std::{convert::TryInto, hash::Hash};
 
 impl super::Validator {
     /// Validates that all handles within `module` are:
     ///
     /// * Valid, in the sense that they contain indices within each arena structure inside the
-    /// [`crate::Module`] type.
+    ///   [`crate::Module`] type.
     /// * No arena contents contain any items that have forward dependencies; that is, the value
-    ///     associated with a handle only may contain references to handles in the same arena that
-    ///     were constructed before it.
+    ///   associated with a handle only may contain references to handles in the same arena that
+    ///   were constructed before it.
     ///
     /// By validating the above conditions, we free up subsequent logic to assume that handle
     /// accesses are infallible.
@@ -38,6 +40,8 @@ impl super::Validator {
             ref types,
             ref special_types,
             ref global_expressions,
+            ref diagnostic_filters,
+            ref diagnostic_filter_leaf,
         } = module;
 
         // NOTE: Types being first is important. All other forms of validation depend on this.
@@ -118,6 +122,7 @@ impl super::Validator {
                 ref expressions,
                 ref named_expressions,
                 ref body,
+                ref diagnostic_filter_leaf,
             } = function;
 
             for arg in arguments.iter() {
@@ -161,11 +166,20 @@ impl super::Validator {
 
             Self::validate_block_handles(body, expressions, functions)?;
 
+            if let Some(handle) = *diagnostic_filter_leaf {
+                handle.check_valid_for(diagnostic_filters)?;
+            }
+
             Ok(())
         };
 
         for entry_point in entry_points.iter() {
             validate_function(None, &entry_point.function)?;
+            if let Some(sizes) = entry_point.workgroup_size_overrides {
+                for size in sizes.iter().filter_map(|x| *x) {
+                    validate_const_expr(size)?;
+                }
+            }
         }
 
         for (function_handle, function) in functions.iter() {
@@ -177,6 +191,14 @@ impl super::Validator {
         }
         if let Some(ty) = special_types.ray_intersection {
             validate_type(ty)?;
+        }
+
+        for (handle, _node) in diagnostic_filters.iter() {
+            let DiagnosticFilterNode { inner: _, parent } = diagnostic_filters[handle];
+            handle.check_dep_opt(parent)?;
+        }
+        if let Some(handle) = *diagnostic_filter_leaf {
+            handle.check_valid_for(diagnostic_filters)?;
         }
 
         Ok(())
@@ -530,7 +552,9 @@ impl super::Validator {
                     crate::AtomicFunction::Exchange { compare } => validate_expr_opt(compare)?,
                 };
                 validate_expr(value)?;
-                validate_expr(result)?;
+                if let Some(result) = result {
+                    validate_expr(result)?;
+                }
                 Ok(())
             }
             crate::Statement::WorkGroupUniformLoad { pointer, result } => {
@@ -686,7 +710,7 @@ impl<T> Handle<T> {
             Ok(self)
         } else {
             let erase_handle_type = |handle: Handle<_>| {
-                Handle::new(NonZeroU32::new((handle.index() + 1).try_into().unwrap()).unwrap())
+                Handle::new(NonMaxU32::new((handle.index()).try_into().unwrap()).unwrap())
             };
             Err(FwdDepError {
                 subject: erase_handle_type(self),
