@@ -23,8 +23,8 @@ var image_texture: texture_2d<f32>;
 var image_sampler: sampler;
 
 struct FragmentOutput {
-  @location(0) target_a : vec4<f32>,
-  @location(1) target_b : vec4<f32>,
+  @location(0) red_target : vec4<f32>,
+  @location(1) green_target : vec4<f32>,
 }
 
 @fragment
@@ -32,8 +32,8 @@ fn fs_multi_main(vs: VertexOutput) -> FragmentOutput {
     let smp = textureSample(image_texture, image_sampler, vs.uv).x;
 
     var output: FragmentOutput;
-    output.target_a = vec4<f32>(smp, 0.0, 0.0, 1.0);
-    output.target_b = vec4<f32>(0.0, smp, 0.0, 1.0);
+    output.red_target = vec4<f32>(smp, 0.0, 0.0, 1.0);
+    output.green_target = vec4<f32>(0.0, smp, 0.0, 1.0);
     return output;
 }
 

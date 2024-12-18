@@ -294,7 +294,7 @@ impl TargetRenderer {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_targets.a_view),
+                    resource: wgpu::BindingResource::TextureView(&texture_targets.red_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -309,7 +309,7 @@ impl TargetRenderer {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_targets.b_view),
+                    resource: wgpu::BindingResource::TextureView(&texture_targets.green_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -369,8 +369,8 @@ impl TargetRenderer {
 }
 
 struct TextureTargets {
-    a_view: wgpu::TextureView,
-    b_view: wgpu::TextureView,
+    red_view: wgpu::TextureView,
+    green_view: wgpu::TextureView,
 }
 
 impl TextureTargets {
@@ -386,7 +386,7 @@ impl TextureTargets {
             depth_or_array_layers: 1,
         };
 
-        let a = device.create_texture(&wgpu::TextureDescriptor {
+        let red_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: None,
             size,
             mip_level_count: 1,
@@ -398,7 +398,7 @@ impl TextureTargets {
                 | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[format],
         });
-        let b = device.create_texture(&wgpu::TextureDescriptor {
+        let green_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: None,
             size,
             mip_level_count: 1,
@@ -410,17 +410,20 @@ impl TextureTargets {
                 | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[format],
         });
-        let a_view = a.create_view(&wgpu::TextureViewDescriptor {
+        let red_view = red_texture.create_view(&wgpu::TextureViewDescriptor {
             format: Some(format),
             dimension: Some(wgpu::TextureViewDimension::D2),
             ..wgpu::TextureViewDescriptor::default()
         });
-        let b_view = b.create_view(&wgpu::TextureViewDescriptor {
+        let green_view = green_texture.create_view(&wgpu::TextureViewDescriptor {
             format: Some(format),
             dimension: Some(wgpu::TextureViewDimension::D2),
             ..wgpu::TextureViewDescriptor::default()
         });
-        TextureTargets { a_view, b_view }
+        TextureTargets {
+            red_view,
+            green_view,
+        }
     }
 }
 
@@ -506,12 +509,12 @@ impl crate::framework::Example for Example {
             &mut encoder,
             &[
                 Some(wgpu::RenderPassColorAttachment {
-                    view: &self.texture_targets.a_view,
+                    view: &self.texture_targets.red_view,
                     resolve_target: None,
                     ops: Default::default(),
                 }),
                 Some(wgpu::RenderPassColorAttachment {
-                    view: &self.texture_targets.b_view,
+                    view: &self.texture_targets.green_view,
                     resolve_target: None,
                     ops: Default::default(),
                 }),
