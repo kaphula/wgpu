@@ -83,7 +83,7 @@ impl MultiTargetRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         shader: &wgpu::ShaderModule,
-        target_states: &[wgpu::ColorTargetState],
+        target_states: &[Option<wgpu::ColorTargetState>],
     ) -> MultiTargetRenderer {
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -141,10 +141,6 @@ impl MultiTargetRenderer {
             label: None,
         });
 
-        let ts = target_states
-            .iter()
-            .map(|x| Some(x.clone()))
-            .collect::<Vec<_>>();
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&pipeline_layout),
@@ -159,7 +155,7 @@ impl MultiTargetRenderer {
                 entry_point: Some("fs_multi_main"),
                 // IMPORTANT: specify the color states for the outputs:
                 compilation_options: Default::default(),
-                targets: ts.as_slice(),
+                targets: target_states,
             }),
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
@@ -456,16 +452,16 @@ impl crate::framework::Example for Example {
             // ColorTargetStates specify how the data will be written to the
             // output textures:
             &[
-                wgpu::ColorTargetState {
+                Some(wgpu::ColorTargetState {
                     format: config.format,
                     blend: None,
                     write_mask: Default::default(),
-                },
-                wgpu::ColorTargetState {
+                }),
+                Some(wgpu::ColorTargetState {
                     format: config.format,
                     blend: None,
                     write_mask: Default::default(),
-                },
+                }),
             ],
         );
 
