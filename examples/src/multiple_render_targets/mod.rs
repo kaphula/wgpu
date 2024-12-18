@@ -538,7 +538,7 @@ static TEST: crate::framework::ExampleTestParams = crate::framework::ExampleTest
     height: 768,
     optional_features: wgpu::Features::default(),
     base_test_parameters: wgpu_test::TestParameters::default(),
-    // Bounded by Nvidia 4070
-    comparisons: &[wgpu_test::ComparisonType::Mean(0.002)],
+    // Bounded by lavapipe
+    comparisons: &[wgpu_test::ComparisonType::Mean(0.005)],
     _phantom: std::marker::PhantomData::<Example>,
 };
